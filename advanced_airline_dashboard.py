@@ -83,6 +83,22 @@ def load_and_process_data():
         # Load the main dataset
         df = pd.read_csv('Airline Review.csv', index_col=0)
         
+        # Fix data type issues
+        # Convert Overall_Rating to numeric, handle 'n' values
+        df['Overall_Rating'] = pd.to_numeric(df['Overall_Rating'], errors='coerce')
+        
+        # Remove rows where Overall_Rating is NaN (was 'n' or other invalid values)
+        df = df.dropna(subset=['Overall_Rating'])
+        
+        # Convert service rating columns to numeric
+        service_cols = ['Seat Comfort', 'Cabin Staff Service', 'Food & Beverages', 
+                       'Ground Service', 'Inflight Entertainment', 'Wifi & Connectivity', 
+                       'Value For Money']
+        
+        for col in service_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
         # Parse routes into origin, destination, via
         def parse_route(route_str):
             if pd.isna(route_str):
@@ -128,11 +144,6 @@ def load_and_process_data():
         
         df['Satisfaction_Segment'] = df['Overall_Rating'].apply(categorize_satisfaction)
         
-        # Define service columns
-        service_cols = ['Seat Comfort', 'Cabin Staff Service', 'Food & Beverages', 
-                       'Ground Service', 'Inflight Entertainment', 'Wifi & Connectivity', 
-                       'Value For Money']
-        
         # Add review length
         df['Review_Length'] = df['Review'].fillna('').astype(str).str.len()
         
@@ -140,51 +151,68 @@ def load_and_process_data():
         
     except Exception as e:
         st.error(f"Error loading data: {e}")
+        import traceback
+        st.error(f"Detailed error: {traceback.format_exc()}")
         return None, None
 
 def extract_review_themes(df, sentiment='positive'):
     """Extract themes from reviews using simple keyword analysis"""
-    if sentiment == 'positive':
-        reviews = df[df['Overall_Rating'] >= 8]['Review'].fillna('')
-    else:
-        reviews = df[df['Overall_Rating'] <= 3]['Review'].fillna('')
+    try:
+        # Ensure Overall_Rating is numeric
+        if df['Overall_Rating'].dtype == 'object':
+            df['Overall_Rating'] = pd.to_numeric(df['Overall_Rating'], errors='coerce')
+            df = df.dropna(subset=['Overall_Rating'])
+        
+        if sentiment == 'positive':
+            reviews = df[df['Overall_Rating'] >= 8]['Review'].fillna('')
+        else:
+            reviews = df[df['Overall_Rating'] <= 3]['Review'].fillna('')
     
-    # Combine all reviews
-    all_text = ' '.join(reviews.astype(str)).lower()
-    
-    # Define theme keywords
-    positive_themes = {
-        'Staff Service': ['crew', 'staff', 'service', 'friendly', 'helpful', 'professional'],
-        'Comfort': ['comfortable', 'seat', 'legroom', 'spacious', 'clean'],
-        'Food & Beverage': ['food', 'meal', 'drink', 'beverage', 'delicious', 'tasty'],
-        'Efficiency': ['on time', 'punctual', 'quick', 'fast', 'efficient'],
-        'Value': ['value', 'price', 'cheap', 'reasonable', 'worth'],
-        'Entertainment': ['entertainment', 'movie', 'tv', 'screen', 'wifi'],
-        'Airport Experience': ['check-in', 'boarding', 'airport', 'lounge', 'gate']
-    }
-    
-    negative_themes = {
-        'Poor Service': ['poor service', 'rude', 'unprofessional', 'slow service', 'bad service'],
-        'Delays': ['delay', 'late', 'cancelled', 'postponed', 'waiting'],
-        'Discomfort': ['uncomfortable', 'cramped', 'dirty', 'broken', 'small seat'],
-        'Food Issues': ['bad food', 'poor meal', 'no food', 'terrible food', 'cold food'],
-        'Booking Problems': ['booking', 'reservation', 'website', 'customer service'],
-        'Baggage Issues': ['baggage', 'luggage', 'lost', 'damaged', 'extra charge'],
-        'Communication': ['information', 'communication', 'announcement', 'language barrier']
-    }
-    
-    themes = positive_themes if sentiment == 'positive' else negative_themes
-    theme_counts = {}
-    
-    for theme, keywords in themes.items():
-        count = sum(all_text.count(keyword) for keyword in keywords)
-        theme_counts[theme] = count
-    
-    return sorted(theme_counts.items(), key=lambda x: x[1], reverse=True)
+        # Combine all reviews
+        all_text = ' '.join(reviews.astype(str)).lower()
+        
+        # Define theme keywords
+        positive_themes = {
+            'Staff Service': ['crew', 'staff', 'service', 'friendly', 'helpful', 'professional'],
+            'Comfort': ['comfortable', 'seat', 'legroom', 'spacious', 'clean'],
+            'Food & Beverage': ['food', 'meal', 'drink', 'beverage', 'delicious', 'tasty'],
+            'Efficiency': ['on time', 'punctual', 'quick', 'fast', 'efficient'],
+            'Value': ['value', 'price', 'cheap', 'reasonable', 'worth'],
+            'Entertainment': ['entertainment', 'movie', 'tv', 'screen', 'wifi'],
+            'Airport Experience': ['check-in', 'boarding', 'airport', 'lounge', 'gate']
+        }
+        
+        negative_themes = {
+            'Poor Service': ['poor service', 'rude', 'unprofessional', 'slow service', 'bad service'],
+            'Delays': ['delay', 'late', 'cancelled', 'postponed', 'waiting'],
+            'Discomfort': ['uncomfortable', 'cramped', 'dirty', 'broken', 'small seat'],
+            'Food Issues': ['bad food', 'poor meal', 'no food', 'terrible food', 'cold food'],
+            'Booking Problems': ['booking', 'reservation', 'website', 'customer service'],
+            'Baggage Issues': ['baggage', 'luggage', 'lost', 'damaged', 'extra charge'],
+            'Communication': ['information', 'communication', 'announcement', 'language barrier']
+        }
+        
+        themes = positive_themes if sentiment == 'positive' else negative_themes
+        theme_counts = {}
+        
+        for theme, keywords in themes.items():
+            count = sum(all_text.count(keyword) for keyword in keywords)
+            theme_counts[theme] = count
+        
+        return sorted(theme_counts.items(), key=lambda x: x[1], reverse=True)
+        
+    except Exception as e:
+        st.error(f"Error in theme extraction: {e}")
+        return []
 
 def create_satisfaction_overview(df, service_cols):
     """Create satisfaction overview metrics and charts"""
     st.markdown('<div class="section-header">📊 Flight Experience Satisfaction Overview</div>', unsafe_allow_html=True)
+    
+    # Ensure data types are correct
+    if df['Overall_Rating'].dtype == 'object':
+        df['Overall_Rating'] = pd.to_numeric(df['Overall_Rating'], errors='coerce')
+        df = df.dropna(subset=['Overall_Rating'])
     
     # Key metrics
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -623,6 +651,29 @@ def main():
     if df is None:
         st.error("Could not load data. Please ensure 'Airline Review.csv' is in the same directory.")
         st.info("💡 Make sure to place the 'Airline Review.csv' file in the same folder as this dashboard.")
+        
+        # Debug information
+        st.subheader("🔍 Debug Information")
+        import os
+        current_dir = os.getcwd()
+        st.write(f"**Current directory:** `{current_dir}`")
+        
+        files_in_dir = [f for f in os.listdir('.') if f.endswith('.csv')]
+        st.write(f"**CSV files found:** {files_in_dir}")
+        
+        if os.path.exists('Airline Review.csv'):
+            st.write("✅ Airline Review.csv exists!")
+            try:
+                test_df = pd.read_csv('Airline Review.csv', nrows=5)
+                st.write("**Sample data:**")
+                st.dataframe(test_df)
+                st.write("**Column data types:**")
+                st.write(test_df.dtypes)
+            except Exception as e:
+                st.error(f"Error reading CSV: {e}")
+        else:
+            st.write("❌ Airline Review.csv not found!")
+        
         return
     
     # Apply filters
