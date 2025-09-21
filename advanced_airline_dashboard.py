@@ -412,10 +412,10 @@ def analyze_competitive_landscape(df):
     with col1:
         # Top performers
         top_airlines = airline_metrics.head(15)
-        fig = px.bar(x=top_airlines['Avg_Rating'], y=top_airlines.index, orientation='h',
+        fig = px.bar(top_airlines, x='Avg_Rating', y=top_airlines.index, orientation='h',
                     title="Top 15 Airlines by Average Rating",
-                    color=top_airlines['Avg_Rating'], color_continuous_scale='RdYlGn')
-        fig.update_layout(showlegend=False, height=500)
+                    color='Avg_Rating', color_continuous_scale='RdYlGn')
+        fig.update_layout(showlegend=False, height=500, yaxis_title="Airline")
         st.plotly_chart(fig, use_container_width=True)
         
     with col2:
@@ -475,19 +475,19 @@ def analyze_geographic_performance(df):
     with col1:
         # Best routes
         top_routes = route_performance.head(12)
-        fig = px.bar(x=top_routes['Avg_Rating'], y=top_routes.index, orientation='h',
+        fig = px.bar(top_routes, x='Avg_Rating', y=top_routes.index, orientation='h',
                     title="Top Routes by Satisfaction",
-                    color=top_routes['Avg_Rating'], color_continuous_scale='RdYlGn')
-        fig.update_layout(showlegend=False, height=450)
+                    color='Avg_Rating', color_continuous_scale='RdYlGn')
+        fig.update_layout(showlegend=False, height=450, yaxis_title="Route")
         st.plotly_chart(fig, use_container_width=True)
         
     with col2:
         # Challenging routes
         bottom_routes = route_performance.tail(12)
-        fig = px.bar(x=bottom_routes['Avg_Rating'], y=bottom_routes.index, orientation='h',
+        fig = px.bar(bottom_routes, x='Avg_Rating', y=bottom_routes.index, orientation='h',
                     title="Most Challenging Routes",
-                    color=bottom_routes['Avg_Rating'], color_continuous_scale='Reds_r')
-        fig.update_layout(showlegend=False, height=450)
+                    color='Avg_Rating', color_continuous_scale='Reds_r')
+        fig.update_layout(showlegend=False, height=450, yaxis_title="Route")
         st.plotly_chart(fig, use_container_width=True)
     
     # Geographic insights
@@ -499,10 +499,10 @@ def analyze_geographic_performance(df):
         origin_performance = origin_performance[origin_performance['count'] >= 10]
         origin_performance = origin_performance.sort_values('mean', ascending=False).head(10)
         
-        fig = px.bar(x=origin_performance['mean'], y=origin_performance.index, orientation='h',
+        fig = px.bar(origin_performance, x='mean', y=origin_performance.index, orientation='h',
                     title="Top Origin Cities by Satisfaction",
-                    color=origin_performance['mean'], color_continuous_scale='Greens')
-        fig.update_layout(showlegend=False, height=400)
+                    color='mean', color_continuous_scale='Greens')
+        fig.update_layout(showlegend=False, height=400, yaxis_title="Origin City")
         st.plotly_chart(fig, use_container_width=True)
         
     with col2:
@@ -511,10 +511,10 @@ def analyze_geographic_performance(df):
         dest_performance = dest_performance[dest_performance['count'] >= 10]
         dest_performance = dest_performance.sort_values('mean', ascending=False).head(10)
         
-        fig = px.bar(x=dest_performance['mean'], y=dest_performance.index, orientation='h',
+        fig = px.bar(dest_performance, x='mean', y=dest_performance.index, orientation='h',
                     title="Top Destination Cities by Satisfaction",
-                    color=dest_performance['mean'], color_continuous_scale='Blues')
-        fig.update_layout(showlegend=False, height=400)
+                    color='mean', color_continuous_scale='Blues')
+        fig.update_layout(showlegend=False, height=400, yaxis_title="Destination City")
         st.plotly_chart(fig, use_container_width=True)
 
 def analyze_class_and_traveler_segments(df):
