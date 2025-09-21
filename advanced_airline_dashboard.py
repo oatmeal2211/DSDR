@@ -397,42 +397,61 @@ def analyze_competitive_landscape(df):
     """Comprehensive competitive analysis"""
     st.markdown('<div class="section-header">🏆 Competitive Landscape Analysis</div>', unsafe_allow_html=True)
     
+    # Check if we have enough data
+    if len(df) < 10:
+        st.warning("⚠️ Not enough data for competitive analysis. Please adjust filters.")
+        return
+    
     # Airline performance metrics
     airline_metrics = df.groupby('Airline Name').agg({
         'Overall_Rating': ['mean', 'count'],
         'Recommended': lambda x: (x == 'yes').mean() * 100
     }).round(2)
     airline_metrics.columns = ['Avg_Rating', 'Review_Count', 'Recommendation_Rate']
-    airline_metrics = airline_metrics[airline_metrics['Review_Count'] >= 10]
+    airline_metrics = airline_metrics[airline_metrics['Review_Count'] >= 5]  # Reduced threshold
     airline_metrics = airline_metrics.sort_values('Avg_Rating', ascending=False)
+    
+    # Check if we have any airlines after filtering
+    if len(airline_metrics) == 0:
+        st.warning("⚠️ No airlines have enough reviews for comparison. Please adjust filters.")
+        return
     
     # Performance quadrant analysis
     col1, col2 = st.columns(2)
     
     with col1:
         # Top performers
-        top_airlines = airline_metrics.head(15)
-        fig = px.bar(top_airlines, x='Avg_Rating', y=top_airlines.index, orientation='h',
-                    title="Top 15 Airlines by Average Rating",
-                    color='Avg_Rating', color_continuous_scale='RdYlGn')
-        fig.update_layout(showlegend=False, height=500, yaxis_title="Airline")
-        st.plotly_chart(fig, use_container_width=True)
+        num_airlines_to_show = min(15, len(airline_metrics))
+        top_airlines = airline_metrics.head(num_airlines_to_show)
+        
+        if len(top_airlines) > 0:
+            fig = px.bar(top_airlines, x='Avg_Rating', y=top_airlines.index, orientation='h',
+                        title=f"Top {num_airlines_to_show} Airlines by Average Rating",
+                        color='Avg_Rating', color_continuous_scale='RdYlGn')
+            fig.update_layout(showlegend=False, height=500, yaxis_title="Airline")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No airlines to display")
         
     with col2:
         # Performance matrix: Rating vs Recommendation
-        fig = px.scatter(airline_metrics, x='Avg_Rating', y='Recommendation_Rate',
-                        size='Review_Count', hover_name=airline_metrics.index,
-                        title="Performance Matrix: Rating vs Recommendations",
-                        color='Avg_Rating', color_continuous_scale='RdYlGn')
-        
-        # Add quadrant lines
-        median_rating = airline_metrics['Avg_Rating'].median()
-        median_rec = airline_metrics['Recommendation_Rate'].median()
-        fig.add_hline(y=median_rec, line_dash="dash", line_color="gray", opacity=0.5)
-        fig.add_vline(x=median_rating, line_dash="dash", line_color="gray", opacity=0.5)
-        
-        fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        if len(airline_metrics) > 0:
+            fig = px.scatter(airline_metrics, x='Avg_Rating', y='Recommendation_Rate',
+                            size='Review_Count', hover_name=airline_metrics.index,
+                            title="Performance Matrix: Rating vs Recommendations",
+                            color='Avg_Rating', color_continuous_scale='RdYlGn')
+            
+            # Add quadrant lines only if we have data
+            if len(airline_metrics) > 1:
+                median_rating = airline_metrics['Avg_Rating'].median()
+                median_rec = airline_metrics['Recommendation_Rate'].median()
+                fig.add_hline(y=median_rec, line_dash="dash", line_color="gray", opacity=0.5)
+                fig.add_vline(x=median_rating, line_dash="dash", line_color="gray", opacity=0.5)
+            
+            fig.update_layout(height=500)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No airlines to display")
     
     # Competitive insights
     col1, col2 = st.columns(2)
@@ -440,26 +459,45 @@ def analyze_competitive_landscape(df):
     with col1:
         st.markdown('<div class="insight-box">', unsafe_allow_html=True)
         st.write("**🥇 Top Performers:**")
-        best_airline = airline_metrics.iloc[0]
-        highest_rec = airline_metrics.loc[airline_metrics['Recommendation_Rate'].idxmax()]
-        st.write(f"• Best Rating: **{best_airline.name}** ({best_airline['Avg_Rating']:.2f}/10)")
-        st.write(f"• Highest Recommendations: **{highest_rec.name}** ({highest_rec['Recommendation_Rate']:.1f}%)")
-        st.write(f"• Market Leaders show consistency across metrics")
+        
+        if len(airline_metrics) > 0:
+            best_airline = airline_metrics.iloc[0]
+            highest_rec_idx = airline_metrics['Recommendation_Rate'].idxmax()
+            highest_rec = airline_metrics.loc[highest_rec_idx]
+            st.write(f"• Best Rating: **{best_airline.name}** ({best_airline['Avg_Rating']:.2f}/10)")
+            st.write(f"• Highest Recommendations: **{highest_rec.name}** ({highest_rec['Recommendation_Rate']:.1f}%)")
+            st.write(f"• Market Leaders show consistency across metrics")
+        else:
+            st.write("• No airlines available with current filters")
+            
         st.markdown('</div>', unsafe_allow_html=True)
         
     with col2:
         st.markdown('<div class="insight-box">', unsafe_allow_html=True)
         st.write("**📊 Market Analysis:**")
-        performance_gap = airline_metrics['Avg_Rating'].max() - airline_metrics['Avg_Rating'].min()
-        high_performers = (airline_metrics['Avg_Rating'] >= airline_metrics['Avg_Rating'].quantile(0.8)).sum()
-        st.write(f"• Performance Gap: **{performance_gap:.2f}** points")
-        st.write(f"• High Performers: **{high_performers}** airlines (top 20%)")
-        st.write(f"• Clear differentiation opportunities exist")
+        
+        if len(airline_metrics) > 1:
+            performance_gap = airline_metrics['Avg_Rating'].max() - airline_metrics['Avg_Rating'].min()
+            high_performers = (airline_metrics['Avg_Rating'] >= airline_metrics['Avg_Rating'].quantile(0.8)).sum()
+            st.write(f"• Performance Gap: **{performance_gap:.2f}** points")
+            st.write(f"• High Performers: **{high_performers}** airlines (top 20%)")
+            st.write(f"• Clear differentiation opportunities exist")
+        elif len(airline_metrics) == 1:
+            st.write(f"• Only one airline meets criteria")
+            st.write(f"• Consider adjusting filters for comparison")
+        else:
+            st.write("• Insufficient data for analysis")
+            
         st.markdown('</div>', unsafe_allow_html=True)
 
 def analyze_geographic_performance(df):
     """Enhanced geographic and route analysis"""
     st.markdown('<div class="section-header">🌍 Geographic Performance & Route Analysis</div>', unsafe_allow_html=True)
+    
+    # Check if we have enough data
+    if len(df) < 5:
+        st.warning("⚠️ Not enough data for geographic analysis. Please adjust filters.")
+        return
     
     # Route performance analysis
     route_performance = df.groupby('Route').agg({
@@ -467,28 +505,42 @@ def analyze_geographic_performance(df):
         'Recommended': lambda x: (x == 'yes').mean() * 100
     }).round(2)
     route_performance.columns = ['Avg_Rating', 'Review_Count', 'Recommendation_Rate']
-    route_performance = route_performance[route_performance['Review_Count'] >= 5]
+    route_performance = route_performance[route_performance['Review_Count'] >= 2]  # Reduced threshold
     route_performance = route_performance.sort_values('Avg_Rating', ascending=False)
+    
+    if len(route_performance) == 0:
+        st.warning("⚠️ No routes have enough reviews for analysis. Please adjust filters.")
+        return
     
     col1, col2 = st.columns(2)
     
     with col1:
         # Best routes
-        top_routes = route_performance.head(12)
-        fig = px.bar(top_routes, x='Avg_Rating', y=top_routes.index, orientation='h',
-                    title="Top Routes by Satisfaction",
-                    color='Avg_Rating', color_continuous_scale='RdYlGn')
-        fig.update_layout(showlegend=False, height=450, yaxis_title="Route")
-        st.plotly_chart(fig, use_container_width=True)
+        num_routes_to_show = min(12, len(route_performance))
+        top_routes = route_performance.head(num_routes_to_show)
+        
+        if len(top_routes) > 0:
+            fig = px.bar(top_routes, x='Avg_Rating', y=top_routes.index, orientation='h',
+                        title=f"Top {num_routes_to_show} Routes by Satisfaction",
+                        color='Avg_Rating', color_continuous_scale='RdYlGn')
+            fig.update_layout(showlegend=False, height=450, yaxis_title="Route")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No routes to display")
         
     with col2:
         # Challenging routes
-        bottom_routes = route_performance.tail(12)
-        fig = px.bar(bottom_routes, x='Avg_Rating', y=bottom_routes.index, orientation='h',
-                    title="Most Challenging Routes",
-                    color='Avg_Rating', color_continuous_scale='Reds_r')
-        fig.update_layout(showlegend=False, height=450, yaxis_title="Route")
-        st.plotly_chart(fig, use_container_width=True)
+        num_bottom_routes = min(12, len(route_performance))
+        bottom_routes = route_performance.tail(num_bottom_routes)
+        
+        if len(bottom_routes) > 0:
+            fig = px.bar(bottom_routes, x='Avg_Rating', y=bottom_routes.index, orientation='h',
+                        title=f"Most Challenging Routes",
+                        color='Avg_Rating', color_continuous_scale='Reds_r')
+            fig.update_layout(showlegend=False, height=450, yaxis_title="Route")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No routes to display")
     
     # Geographic insights
     col1, col2 = st.columns(2)
@@ -496,26 +548,32 @@ def analyze_geographic_performance(df):
     with col1:
         # Origin performance
         origin_performance = df.groupby('Origin')['Overall_Rating'].agg(['mean', 'count'])
-        origin_performance = origin_performance[origin_performance['count'] >= 10]
+        origin_performance = origin_performance[origin_performance['count'] >= 3]  # Reduced threshold
         origin_performance = origin_performance.sort_values('mean', ascending=False).head(10)
         
-        fig = px.bar(origin_performance, x='mean', y=origin_performance.index, orientation='h',
-                    title="Top Origin Cities by Satisfaction",
-                    color='mean', color_continuous_scale='Greens')
-        fig.update_layout(showlegend=False, height=400, yaxis_title="Origin City")
-        st.plotly_chart(fig, use_container_width=True)
+        if len(origin_performance) > 0:
+            fig = px.bar(origin_performance, x='mean', y=origin_performance.index, orientation='h',
+                        title="Top Origin Cities by Satisfaction",
+                        color='mean', color_continuous_scale='Greens')
+            fig.update_layout(showlegend=False, height=400, yaxis_title="Origin City")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No origin cities to display")
         
     with col2:
         # Destination performance
         dest_performance = df.groupby('Destination')['Overall_Rating'].agg(['mean', 'count'])
-        dest_performance = dest_performance[dest_performance['count'] >= 10]
+        dest_performance = dest_performance[dest_performance['count'] >= 3]  # Reduced threshold
         dest_performance = dest_performance.sort_values('mean', ascending=False).head(10)
         
-        fig = px.bar(dest_performance, x='mean', y=dest_performance.index, orientation='h',
-                    title="Top Destination Cities by Satisfaction",
-                    color='mean', color_continuous_scale='Blues')
-        fig.update_layout(showlegend=False, height=400, yaxis_title="Destination City")
-        st.plotly_chart(fig, use_container_width=True)
+        if len(dest_performance) > 0:
+            fig = px.bar(dest_performance, x='mean', y=dest_performance.index, orientation='h',
+                        title="Top Destination Cities by Satisfaction",
+                        color='mean', color_continuous_scale='Blues')
+            fig.update_layout(showlegend=False, height=400, yaxis_title="Destination City")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No destination cities to display")
 
 def analyze_class_and_traveler_segments(df):
     """Analyze satisfaction by class and traveler type"""
